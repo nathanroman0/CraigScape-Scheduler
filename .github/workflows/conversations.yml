@@ -1,0 +1,38 @@
+name: CraigScape conversation heartbeat
+on:
+  schedule:
+    - cron: '4-59/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Check conversation candidates without creating replies'
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: craigscape-conversations
+  cancel-in-progress: false
+jobs:
+  conversation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Check configuration
+        env:
+          URL: ${{ secrets.CRAIGSCAPE_CONVERSATION_URL }}
+          TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
+        run: |
+          test -n "$URL" || { echo "::error::Missing CRAIGSCAPE_CONVERSATION_URL"; exit 1; }
+          test -n "$TOKEN" || { echo "::error::Missing CRAIGSCAPE_SCHEDULER_TOKEN"; exit 1; }
+      - name: Wake conversation engine
+        env:
+          URL: ${{ secrets.CRAIGSCAPE_CONVERSATION_URL }}
+          TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
+          DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) || vars.CRAIGSCAPE_CONVERSATIONS_ENABLED != 'true' }}
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --max-time 110 --output /tmp/result.json --write-out "%{http_code}" --request POST "$URL" --header 'Content-Type: application/json' --header "X-CraigScape-Scheduler-Token: $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
+          echo "Base44 HTTP status: $status"
+          if [ "$status" -ge 400 ]; then python3 -c 'import json; x=json.load(open("/tmp/result.json")); print("Base44 error:",str(x.get("error","unknown"))[:200])' || true; exit 1; fi
+          python3 -c 'import json,sys; x=json.load(open("/tmp/result.json")); print(json.dumps({k:x.get(k) for k in ("ok","dryRun","acted","reason","candidates","eligibleThreads","agent") if k in x})); sys.exit(0 if x.get("ok") is True else 1)'
