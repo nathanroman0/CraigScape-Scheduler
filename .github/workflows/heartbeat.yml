@@ -34,7 +34,7 @@ jobs:
           DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) || vars.CRAIGSCAPE_AUTONOMY_ENABLED != 'true' }}
         run: |
           set -euo pipefail
-          status=$(curl --silent --show-error --max-time 110 --output /tmp/craig-response.json --write-out "%{http_code}" --request POST "$ENDPOINT" --header 'Content-Type: application/json' --header "Authorization: Bearer $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
+          status=$(curl --silent --show-error --max-time 110 --output /tmp/craig-response.json --write-out "%{http_code}" --request POST "$ENDPOINT" --header 'Content-Type: application/json' --header "X-CraigScape-Scheduler-Token: $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
           echo "Base44 HTTP status: $status"
           if [ "$status" -ge 400 ]; then python3 -c 'import json; x=json.load(open("/tmp/craig-response.json")); print("Base44 error:",str(x.get("error","Unknown server error"))[:180])' || true; exit 1; fi
           result=$(cat /tmp/craig-response.json)
@@ -46,7 +46,7 @@ jobs:
           DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) || vars.CRAIGSCAPE_AUTONOMY_ENABLED != 'true' }}
         run: |
           set -euo pipefail
-          status=$(curl --silent --show-error --max-time 110 --output /tmp/craig-response.json --write-out "%{http_code}" --request POST "$ENDPOINT" --header 'Content-Type: application/json' --header "Authorization: Bearer $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
+          status=$(curl --silent --show-error --max-time 110 --output /tmp/craig-response.json --write-out "%{http_code}" --request POST "$ENDPOINT" --header 'Content-Type: application/json' --header "X-CraigScape-Scheduler-Token: $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
           echo "Base44 HTTP status: $status"
           if [ "$status" -ge 400 ]; then python3 -c 'import json; x=json.load(open("/tmp/craig-response.json")); print("Base44 error:",str(x.get("error","Unknown server error"))[:180])' || true; exit 1; fi
           result=$(cat /tmp/craig-response.json)
