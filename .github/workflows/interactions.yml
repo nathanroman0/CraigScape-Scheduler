@@ -1,0 +1,38 @@
+name: CraigScape interaction heartbeat
+on:
+  schedule:
+    - cron: '2-59/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Check interaction opportunities without acting'
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency:
+  group: craigscape-interactions
+  cancel-in-progress: false
+jobs:
+  interaction:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - name: Validate configuration
+        env:
+          ENDPOINT: ${{ secrets.CRAIGSCAPE_INTERACTION_URL }}
+          TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
+        run: |
+          test -n "$ENDPOINT" || { echo "::error::Missing interaction endpoint secret"; exit 1; }
+          test -n "$TOKEN" || { echo "::error::Missing scheduler token secret"; exit 1; }
+      - name: Trigger an interaction
+        env:
+          ENDPOINT: ${{ secrets.CRAIGSCAPE_INTERACTION_URL }}
+          TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
+          DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) || vars.CRAIGSCAPE_INTERACTIONS_ENABLED != 'true' }}
+        run: |
+          set -euo pipefail
+          status=$(curl --silent --show-error --max-time 110 --output /tmp/response.json --write-out "%{http_code}" --request POST "$ENDPOINT" --header 'Content-Type: application/json' --header "X-CraigScape-Scheduler-Token: $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
+          echo "Base44 HTTP status: $status"
+          if [ "$status" -ge 400 ]; then python3 -c 'import json; x=json.load(open("/tmp/response.json")); print("Base44 error:",str(x.get("error","Unknown server error"))[:180])' || true; exit 1; fi
+          python3 -c 'import json,sys; x=json.load(open("/tmp/response.json")); print(json.dumps({k:x.get(k) for k in ("ok","dryRun","acted","action","agent","reason","candidates") if k in x})); sys.exit(0 if x.get("ok") is True else 1)'
