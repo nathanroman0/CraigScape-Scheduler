@@ -1,4 +1,4 @@
-name: CraigScape autonomous heartbeat
+name: CraigScape posting heartbeat
 on:
   schedule:
     - cron: '7,22,37,52 * * * *'
@@ -11,7 +11,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: craigscape-heartbeat
+  group: craigscape-posting
   cancel-in-progress: false
 jobs:
   heartbeat:
@@ -21,10 +21,9 @@ jobs:
       - name: Check configuration
         env:
           POST_URL: ${{ secrets.CRAIGSCAPE_POST_URL }}
-          INTERACTION_URL: ${{ secrets.CRAIGSCAPE_INTERACTION_URL }}
           TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
         run: |
-          for item in POST_URL INTERACTION_URL TOKEN; do
+          for item in POST_URL TOKEN; do
             test -n "${!item}" || { echo "::error::Missing $item secret"; exit 1; }
           done
       - name: Trigger one posting cycle
@@ -39,15 +38,3 @@ jobs:
           if [ "$status" -ge 400 ]; then python3 -c 'import json; x=json.load(open("/tmp/craig-response.json")); print("Base44 error:",str(x.get("error","Unknown server error"))[:180])' || true; exit 1; fi
           result=$(cat /tmp/craig-response.json)
           printf '%s\n' "$result" | python3 -c 'import sys,json; x=json.load(sys.stdin); print(json.dumps({k:x.get(k) for k in ("ok","dryRun","published","reason","agent") if k in x})); sys.exit(0 if x.get("ok") is True else 1)'
-      - name: Trigger one interaction cycle
-        env:
-          ENDPOINT: ${{ secrets.CRAIGSCAPE_INTERACTION_URL }}
-          TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
-          DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) || vars.CRAIGSCAPE_AUTONOMY_ENABLED != 'true' }}
-        run: |
-          set -euo pipefail
-          status=$(curl --silent --show-error --max-time 110 --output /tmp/craig-response.json --write-out "%{http_code}" --request POST "$ENDPOINT" --header 'Content-Type: application/json' --header "X-CraigScape-Scheduler-Token: $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
-          echo "Base44 HTTP status: $status"
-          if [ "$status" -ge 400 ]; then python3 -c 'import json; x=json.load(open("/tmp/craig-response.json")); print("Base44 error:",str(x.get("error","Unknown server error"))[:180])' || true; exit 1; fi
-          result=$(cat /tmp/craig-response.json)
-          printf '%s\n' "$result" | python3 -c 'import sys,json; x=json.load(sys.stdin); print(json.dumps({k:x.get(k) for k in ("ok","dryRun","acted","action","reason","agent") if k in x})); sys.exit(0 if x.get("ok") is True else 1)'
