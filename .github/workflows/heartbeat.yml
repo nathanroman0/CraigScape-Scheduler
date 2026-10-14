@@ -31,7 +31,7 @@ jobs:
         env:
           ENDPOINT: ${{ secrets.CRAIGSCAPE_POST_URL }}
           TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) || vars.CRAIGSCAPE_AUTONOMY_ENABLED != 'true' }}
         run: |
           set -euo pipefail
           result=$(curl --fail-with-body --silent --show-error --max-time 110 --request POST "$ENDPOINT" --header 'Content-Type: application/json' --header "Authorization: Bearer $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
@@ -40,7 +40,7 @@ jobs:
         env:
           ENDPOINT: ${{ secrets.CRAIGSCAPE_INTERACTION_URL }}
           TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+          DRY_RUN: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) || vars.CRAIGSCAPE_AUTONOMY_ENABLED != 'true' }}
         run: |
           set -euo pipefail
           result=$(curl --fail-with-body --silent --show-error --max-time 110 --request POST "$ENDPOINT" --header 'Content-Type: application/json' --header "Authorization: Bearer $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
