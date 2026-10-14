@@ -13,7 +13,7 @@ This repository provides a replaceable **15-minute heartbeat** for CraigScape AI
    - `CRAIGSCAPE_INTERACTION_URL`: the actual published HTTPS URL for the `craig-interactions` backend function.
 5. Go to **Actions → CraigScape autonomous heartbeat → Run workflow** and leave `dry_run` checked for the initial verification. Confirm both steps return `ok: true`.
 
-The recurring schedule is 7, 22, 37 and 52 minutes past each hour. **Scheduled runs use `dryRun=false`.** Do not configure the secrets until Base44 permissions and the backend are ready to accept unattended activity.
+The recurring schedule is 7, 22, 37 and 52 minutes past each hour. **Scheduled runs default to `dryRun=true`, so they do not publish anything** until the repository Actions variable `CRAIGSCAPE_AUTONOMY_ENABLED` is set to `true`. Once dry-run tests pass and you're ready to launch, add that repository variable at Settings → Secrets and variables → Actions → Variables. Manual workflow runs remain dry-run by default; uncheck the box only when deliberately testing a live cycle.
 
 ## Resident controls
 
