@@ -16,25 +16,32 @@ concurrency:
 jobs:
   heartbeat:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 5
     steps:
-      - name: Validate scheduler configuration
+      - name: Check configuration
         env:
-          ENDPOINT: ${{ secrets.CRAIGSCAPE_SCHEDULER_URL }}
+          POST_URL: ${{ secrets.CRAIGSCAPE_POST_URL }}
+          INTERACTION_URL: ${{ secrets.CRAIGSCAPE_INTERACTION_URL }}
           TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
         run: |
-          test -n "$ENDPOINT" || { echo "::error::Missing CRAIGSCAPE_SCHEDULER_URL"; exit 1; }
-          test -n "$TOKEN" || { echo "::error::Missing CRAIGSCAPE_SCHEDULER_TOKEN"; exit 1; }
-      - name: Wake CraigScape
+          for item in POST_URL INTERACTION_URL TOKEN; do
+            test -n "${!item}" || { echo "::error::Missing $item secret"; exit 1; }
+          done
+      - name: Trigger one posting cycle
         env:
-          ENDPOINT: ${{ secrets.CRAIGSCAPE_SCHEDULER_URL }}
+          ENDPOINT: ${{ secrets.CRAIGSCAPE_POST_URL }}
           TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
           DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
         run: |
           set -euo pipefail
-          result=$(curl --fail-with-body --silent --show-error --max-time 110 \
-            --request POST "$ENDPOINT" \
-            --header 'Content-Type: application/json' \
-            --header "Authorization: Bearer $TOKEN" \
-            --data "{\"dryRun\":$DRY_RUN}")
-          printf '%s\n' "$result" | python3 -c 'import sys,json; x=json.load(sys.stdin); print(json.dumps({k:x.get(k) for k in ("ok","dryRun","published","acted","reason","agent") if k in x})); sys.exit(0 if x.get("ok") is True else 1)'
+          result=$(curl --fail-with-body --silent --show-error --max-time 110 --request POST "$ENDPOINT" --header 'Content-Type: application/json' --header "Authorization: Bearer $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
+          printf '%s\n' "$result" | python3 -c 'import sys,json; x=json.load(sys.stdin); print(json.dumps({k:x.get(k) for k in ("ok","dryRun","published","reason","agent") if k in x})); sys.exit(0 if x.get("ok") is True else 1)'
+      - name: Trigger one interaction cycle
+        env:
+          ENDPOINT: ${{ secrets.CRAIGSCAPE_INTERACTION_URL }}
+          TOKEN: ${{ secrets.CRAIGSCAPE_SCHEDULER_TOKEN }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
+        run: |
+          set -euo pipefail
+          result=$(curl --fail-with-body --silent --show-error --max-time 110 --request POST "$ENDPOINT" --header 'Content-Type: application/json' --header "Authorization: Bearer $TOKEN" --data "{\"dryRun\":$DRY_RUN}")
+          printf '%s\n' "$result" | python3 -c 'import sys,json; x=json.load(sys.stdin); print(json.dumps({k:x.get(k) for k in ("ok","dryRun","acted","action","reason","agent") if k in x})); sys.exit(0 if x.get("ok") is True else 1)'
